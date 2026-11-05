@@ -1,0 +1,15 @@
+# Test server: plain HTTP on :8080. HTTPS, if any, comes from the platform in front (e.g. Codespaces).
+{
+	auto_https off
+	admin off
+}
+
+:8080 {
+	root * /var/www/html/public
+	encode gzip
+	request_body {
+		max_size 26MB
+	}
+	php_fastcgi app:9000
+	file_server
+}

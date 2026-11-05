@@ -15,6 +15,15 @@ This kit runs the whole platform on one Ubuntu 24.04 server with Docker. It work
 
 Only ports 22, 80 and 443 are open. The database, Redis, PHP and the AI service are reachable only on the private Docker network.
 
+## Test server first (free, no setup)
+
+GitHub ▸ repository ▸ **Code** ▸ **Codespaces** ▸ **Create codespace on main**. The Codespace builds and starts the full stack with a demo school, which takes 5–8 minutes the first time, then opens it in your browser. The terminal prints the sign-in details:
+
+- Demo school: `<address>/i/demo/login`, `owner@demo.test` / `Demo-School-2026`
+- Super Admin: `<address>/platform/login`, `admin@test.local` / generated password
+
+On any machine with Docker: `./deploy/test-up.sh`, then open http://localhost:8080. Use `--reset` to start fresh. The test server uses path addresses (`/i/<code>`) instead of subdomains and sends no e-mail. Don't put real school data on it. Stop the Codespace when you're done, because the free tier counts hours.
+
 ## What you need
 
 | Item | Notes |

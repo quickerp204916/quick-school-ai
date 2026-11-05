@@ -1,0 +1,13 @@
+{
+  "name": "Quick School AI test server",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "hostRequirements": { "cpus": 4, "memory": "8gb" },
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": { "label": "Quick School AI", "onAutoForward": "openBrowser" }
+  },
+  "postStartCommand": "bash deploy/test-up.sh 2>&1 | tee /tmp/qsa-test-up.log"
+}

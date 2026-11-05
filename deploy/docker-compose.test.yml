@@ -1,0 +1,106 @@
+# Quick School AI test server: the production images over plain HTTP on port 8080, with
+# path routing (/i/<code>/...) so it works on one address (GitHub Codespaces, a laptop, any VM).
+# Started by deploy/test-up.sh. Not for real school data.
+name: quick-school-ai-test
+
+x-laravel: &laravel
+  build:
+    context: ..
+    dockerfile: deploy/docker/web.Dockerfile
+  image: quick-school-ai/web:test
+  restart: unless-stopped
+  env_file: .env.test
+  environment:
+    APP_ENV: production
+    APP_DEBUG: "false"
+    TENANT_ROUTING: path
+    PLATFORM_BASE_DOMAIN: localhost
+    LOG_CHANNEL: stderr
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_DATABASE: quick_school_ai
+    DB_USERNAME: qsa_app
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    SESSION_DRIVER: database
+    CACHE_STORE: redis
+    QUEUE_CONNECTION: redis
+    MAIL_MAILER: log
+    QSA_AI_SERVICE_URL: http://ai-service:8090
+    # Codespaces and similar forward HTTPS through a proxy in front of this stack.
+    TRUSTED_PROXIES: "*"
+  volumes:
+    - storage:/var/www/html/storage
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *laravel
+  queue:
+    <<: *laravel
+    command: ["php", "artisan", "queue:work", "redis", "--sleep=1", "--tries=3"]
+  scheduler:
+    <<: *laravel
+    command: ["php", "artisan", "schedule:work"]
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/docker/caddy.Dockerfile
+    image: quick-school-ai/caddy:test
+    restart: unless-stopped
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.test", "--adapter", "caddyfile"]
+    volumes:
+      - ./Caddyfile.test:/etc/caddy/Caddyfile.test:ro
+    ports:
+      - "8080:8080"
+    depends_on:
+      - app
+
+  ai-service:
+    build:
+      context: ../ai-service
+    image: quick-school-ai/ai-service:test
+    restart: unless-stopped
+    env_file: .env.test
+    environment:
+      QSA_ERP_ALLOWED_HOSTS: app,web,localhost
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    env_file: .env.test
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/10-quick-school.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d quick_school_ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    env_file: .env.test
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\""]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  storage:
+  pgdata:
