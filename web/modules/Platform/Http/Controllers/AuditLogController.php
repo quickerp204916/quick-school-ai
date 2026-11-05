@@ -12,7 +12,7 @@ class AuditLogController extends Controller
     public function __invoke(Request $request): View
     {
         $logs = PlatformAuditLog::with('admin', 'tenant')
-            ->when($request->filled('action'), fn ($q) => $q->where('action', 'like', $request->input('action').'%'))
+            ->when($request->filled('action'), fn ($q) => $q->whereLike('action', $request->input('action').'%'))
             ->when($request->filled('admin'), fn ($q) => $q->where('platform_admin_id', $request->input('admin')))
             ->when($request->filled('tenant'), fn ($q) => $q->where('tenant_id', $request->input('tenant')))
             ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->input('from')))

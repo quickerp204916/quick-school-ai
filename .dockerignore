@@ -1,0 +1,19 @@
+# Build context for deploy/docker/*.Dockerfile is the repository root; keep it small and secret-free.
+.git
+.github
+**/.env
+**/.env.*
+!**/.env.example
+deploy/.env
+web/vendor
+web/node_modules
+web/storage/app/*
+web/storage/framework/cache/*
+web/storage/framework/sessions/*
+web/storage/framework/views/*
+web/storage/logs/*
+web/bootstrap/cache/*.php
+web/database/*.sqlite
+web/tests
+ai-service
+**/__pycache__

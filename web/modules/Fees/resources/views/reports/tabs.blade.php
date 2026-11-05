@@ -1,0 +1,1 @@
+<nav class="toolbar no-print">@foreach (['app.fees.reports.outstanding' => 'Outstanding', 'app.fees.reports.collections' => 'Collections', 'app.fees.reports.concessions' => 'Concessions'] as $n => $l)<a class="btn sm {{ request()->routeIs($n) ? 'primary' : '' }}" href="{{ route($n) }}">{{ $l }}</a>@endforeach</nav>

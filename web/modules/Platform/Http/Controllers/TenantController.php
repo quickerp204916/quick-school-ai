@@ -69,8 +69,8 @@ class TenantController extends Controller
         $tenants = Tenant::query()->with(['subscription.plan', 'domains'])
             ->when($request->filled('q'), function ($q) use ($request) {
                 $term = '%'.str_replace(['%', '_'], ['\%', '\_'], $request->input('q')).'%';
-                $q->where(fn ($w) => $w->where('name', 'like', $term)->orWhere('code', 'like', $term)
-                    ->orWhere('contact_email', 'like', $term)->orWhere('city', 'like', $term));
+                $q->where(fn ($w) => $w->whereLike('name', $term)->orWhereLike('code', $term)
+                    ->orWhereLike('contact_email', $term)->orWhereLike('city', $term));
             })
             ->when(in_array($request->input('status'), Tenant::STATUSES, true), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('plan'), fn ($q) => $q->whereHas('subscription', fn ($s) => $s->where('plan_id', $request->input('plan'))))

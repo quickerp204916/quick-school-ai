@@ -21,8 +21,8 @@ class InvoiceController extends Controller
         $invoices = PlatformInvoice::with('tenant')
             ->when($status === 'overdue', fn ($q) => $q->where('status', 'open')->whereDate('due_date', '<', today()))
             ->when(in_array($status, ['open', 'paid', 'void'], true), fn ($q) => $q->where('status', $status))
-            ->when($request->filled('q'), fn ($q) => $q->where(fn ($w) => $w->where('number', 'like', '%'.$request->input('q').'%')
-                ->orWhereHas('tenant', fn ($t) => $t->where('name', 'like', '%'.$request->input('q').'%'))))
+            ->when($request->filled('q'), fn ($q) => $q->where(fn ($w) => $w->whereLike('number', '%'.$request->input('q').'%')
+                ->orWhereHas('tenant', fn ($t) => $t->whereLike('name', '%'.$request->input('q').'%'))))
             ->latest('issue_date')->latest('number')->paginate(30)->withQueryString();
 
         return view('platform::invoices.index', ['invoices' => $invoices, 'status' => $status]);

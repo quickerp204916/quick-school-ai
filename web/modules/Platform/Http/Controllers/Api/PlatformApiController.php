@@ -28,7 +28,7 @@ class PlatformApiController
     {
         $page = Tenant::with('subscription.plan', 'domains')
             ->when(in_array($request->query('status'), Tenant::STATUSES, true), fn ($q) => $q->where('status', $request->query('status')))
-            ->when($request->filled('q'), fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', '%'.$request->query('q').'%')->orWhere('code', 'like', '%'.$request->query('q').'%')))
+            ->when($request->filled('q'), fn ($q) => $q->where(fn ($w) => $w->whereLike('name', '%'.$request->query('q').'%')->orWhereLike('code', '%'.$request->query('q').'%')))
             ->orderBy('name')->paginate(min(100, max(1, (int) $request->query('per_page', 25))));
 
         return response()->json([

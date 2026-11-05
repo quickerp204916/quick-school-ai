@@ -22,6 +22,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->loadViewsFrom(base_path('modules/Platform/resources/views'), 'platform');
 
+        // PostgreSQL rolls back app.tenant_id with the transaction; put the current tenant back.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Database\Events\TransactionRolledBack::class,
+            fn () => \App\Core\Tenancy\TenantContext::syncPostgres());
+
         if ($this->app->runningInConsole()) {
             $this->commands([BillingRunCommand::class, CreateAdminCommand::class]);
         }

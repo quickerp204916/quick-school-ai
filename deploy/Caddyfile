@@ -1,0 +1,63 @@
+# Quick School AI edge proxy.
+#   {$BASE_DOMAIN}           Super Admin console (/platform)
+#   <code>.{$BASE_DOMAIN}    each institution
+# Certificates are issued on demand, per host, by Let's Encrypt over HTTP-01, so no DNS API
+# is needed. Caddy first asks the app (internal/tls-check) whether the host belongs to a real
+# institution, so nobody can make the server request certificates for random names.
+{
+	email {$ACME_EMAIL}
+	on_demand_tls {
+		ask http://127.0.0.1:8081/internal/tls-check
+	}
+}
+
+(laravel) {
+	root * /var/www/html/public
+	encode zstd gzip
+	request_body {
+		max_size 26MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), geolocation=(), microphone=(self)"
+		-Server
+		-X-Powered-By
+	}
+	# The certificate check is for Caddy only, never the public.
+	@internal path /internal/*
+	respond @internal 404
+	php_fastcgi app:9000
+	file_server
+	log {
+		output stdout
+		format json
+	}
+}
+
+https:// {
+	tls {
+		on_demand
+	}
+	import laravel
+}
+
+http:// {
+	redir https://{host}{uri} permanent
+}
+
+# Internal listener for the on-demand TLS check and deploy health checks.
+# Bound to localhost inside the Caddy container, never published.
+http://127.0.0.1:8081 {
+	bind 127.0.0.1
+	@check path /internal/tls-check /up
+	handle @check {
+		root * /var/www/html/public
+		php_fastcgi app:9000
+	}
+	handle {
+		respond 404
+	}
+}

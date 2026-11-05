@@ -14,6 +14,27 @@ use Modules\Platform\Http\Controllers\TenantController;
 Route::get('/', fn () => redirect()->route('platform.dashboard'));
 
 /*
+| On-demand TLS check for Caddy: certificates are only issued for the platform host and for
+| <code>.<base_domain> where <code> is a live institution. Reached only on Caddy's internal port.
+*/
+Route::get('internal/tls-check', function (\Illuminate\Http\Request $request) {
+    $domain = strtolower((string) $request->query('domain'));
+    $base = strtolower((string) config('platform.base_domain'));
+    if ($domain === $base || $domain === 'www.'.$base) {
+        return response('ok');
+    }
+    $suffix = '.'.$base;
+    if (! str_ends_with($domain, $suffix)) {
+        abort(404);
+    }
+    $code = substr($domain, 0, -strlen($suffix));
+    $live = $code !== '' && ! str_contains($code, '.')
+        && \Modules\Platform\Models\Tenant::where('code', $code)->whereNotIn('status', ['archived'])->exists();
+
+    return $live ? response('ok') : abort(404);
+})->middleware('throttle:120,1')->name('internal.tls-check');
+
+/*
 | Super Admin console: /platform
 */
 Route::prefix('platform')->name('platform.')->group(function () {

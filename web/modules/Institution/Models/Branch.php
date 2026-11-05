@@ -10,10 +10,10 @@ class Branch extends Model
 {
     use BelongsToTenant, HasUuids;
 
-    protected $fillable = ['tenant_id', 'code', 'name', 'is_primary', 'address', 'city', 'state_code'];
+    protected $fillable = ['tenant_id', 'code', 'name', 'is_primary', 'address', 'city', 'state_code', 'phone', 'email', 'is_active'];
 
     protected function casts(): array
     {
-        return ['is_primary' => 'boolean'];
+        return ['is_primary' => 'boolean', 'is_active' => 'boolean'];
     }
 }

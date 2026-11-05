@@ -1,0 +1,132 @@
+# Quick School AI production stack. Run from the repository root:
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env up -d
+# deploy/deploy.sh wraps this. Only Caddy publishes ports (80, 443); everything else stays on
+# the private Docker network.
+name: quick-school-ai
+
+x-laravel: &laravel
+  build:
+    context: ..
+    dockerfile: deploy/docker/web.Dockerfile
+  image: quick-school-ai/web:latest
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    APP_ENV: production
+    APP_DEBUG: "false"
+    APP_URL: https://${BASE_DOMAIN:?set BASE_DOMAIN in deploy/.env}
+    PLATFORM_BASE_DOMAIN: ${BASE_DOMAIN}
+    TENANT_ROUTING: subdomain
+    LOG_CHANNEL: stderr
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_DATABASE: quick_school_ai
+    DB_USERNAME: qsa_app
+    DB_PASSWORD: ${APP_DB_PASSWORD:?run deploy/install.sh to generate secrets}
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    REDIS_PASSWORD: ${REDIS_PASSWORD:?run deploy/install.sh to generate secrets}
+    SESSION_DRIVER: database
+    SESSION_SECURE_COOKIE: "true"
+    CACHE_STORE: redis
+    QUEUE_CONNECTION: redis
+    QSA_AI_SERVICE_URL: http://ai-service:8090
+  volumes:
+    - storage:/var/www/html/storage
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *laravel
+
+  queue:
+    <<: *laravel
+    command: ["php", "artisan", "queue:work", "redis", "--sleep=1", "--tries=3", "--backoff=10", "--max-time=3600"]
+    stop_grace_period: 60s
+
+  scheduler:
+    <<: *laravel
+    # Runs platform:billing-run (02:15 IST) and fees:daily (06:30 IST), see web/routes/console.php.
+    command: ["php", "artisan", "schedule:work"]
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/docker/caddy.Dockerfile
+    image: quick-school-ai/caddy:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/.env}
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  ai-service:
+    build:
+      context: ../ai-service
+    image: quick-school-ai/ai-service:latest
+    restart: unless-stopped
+    environment:
+      QSA_AI_SERVICE_KEY: ${QSA_AI_SERVICE_KEY:?run deploy/install.sh to generate secrets}
+      QSA_ERP_ALLOWED_HOSTS: .${BASE_DOMAIN}
+      QSA_AI_DATABASE_URL: postgresql://qsa_ai:${AI_DB_PASSWORD:?run deploy/install.sh to generate secrets}@postgres:5432/qsa_ai
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      QSA_EMBEDDING_PROVIDER: ${QSA_EMBEDDING_PROVIDER:-openai}
+      QSA_EMBEDDING_MODEL: ${QSA_EMBEDDING_MODEL:-text-embedding-3-small}
+      QSA_EMBEDDING_DIM: ${QSA_EMBEDDING_DIM:-1536}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run deploy/install.sh to generate secrets}
+      POSTGRES_DB: postgres
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/10-quick-school.sh:ro
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d quick_school_ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+volumes:
+  storage:      # uploaded documents (tenants/{id}/...), logs, Laravel cache files
+  pgdata:
+  redisdata:
+  caddy_data:   # TLS certificates; keep it, or Let's Encrypt rate limits apply on re-issue
+  caddy_config:

@@ -39,7 +39,8 @@ class Tenant extends Model
 
     public function subscription(): HasOne
     {
-        return $this->hasOne(Subscription::class)->latestOfMany('created_at');
+        // Latest by creation (ids are time-ordered UUIDs, so they break ties). Not latestOfMany(): PostgreSQL has no MAX(uuid).
+        return $this->hasOne(Subscription::class)->orderByDesc('created_at')->orderByDesc('id');
     }
 
     public function subscriptions(): HasMany

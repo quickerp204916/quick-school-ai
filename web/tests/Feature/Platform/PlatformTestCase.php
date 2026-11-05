@@ -26,6 +26,21 @@ abstract class PlatformTestCase extends TestCase
         $this->seed(PlanSeeder::class);
     }
 
+    /** Database guards exist on MySQL (triggers) and PostgreSQL (RLS); the quick SQLite run skips these checks. */
+    protected function requireDatabaseGuard(): void
+    {
+        if (! in_array(\Illuminate\Support\Facades\DB::connection()->getDriverName(), ['mysql', 'pgsql'], true)) {
+            $this->markTestSkipped('Needs MySQL or PostgreSQL. Runs in CI.');
+        }
+    }
+
+    protected function requirePostgres(): void
+    {
+        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('PostgreSQL Row-Level Security check. Runs in CI.');
+        }
+    }
+
     protected function admin(string $role = 'super_admin', array $attrs = []): PlatformAdmin
     {
         $this->adminCount++;

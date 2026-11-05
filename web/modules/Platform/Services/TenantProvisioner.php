@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Modules\Academic\Services\AcademicSetup;
 use Modules\Identity\Models\TenantMembership;
 use Modules\Identity\Models\User;
 use Modules\Institution\Models\AcademicSession;
@@ -88,9 +89,15 @@ final class TenantProvisioner
 
                 $fy = DocumentNumber::financialYear(now());
                 $startYear = (int) substr($fy, 0, 4);
-                AcademicSession::create([
+                $session = AcademicSession::create([
                     'name' => $fy, 'starts_on' => "{$startYear}-04-01", 'ends_on' => ($startYear + 1).'-03-31', 'is_current' => true,
                 ]);
+
+                // Academic defaults: profile, grading, terms, bell schedule, certificates (and classes for schools).
+                app(AcademicSetup::class)->seed($tenant, $branch, $session);
+                app(\Modules\Accounting\Services\AccountingSetup::class)->seed($tenant, $branch, $session);
+                app(\Modules\Fees\Services\FeeSetup::class)->seed();
+                app(\Modules\Hr\Services\HrSetup::class)->seed();
 
                 TenantMembership::create(['user_id' => $owner->id, 'role' => 'owner', 'status' => 'active', 'default_branch_id' => $branch->id]);
 

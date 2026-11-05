@@ -1,0 +1,6 @@
+<label class="field">Name<input name="name" value="{{ $c?->name }}" required maxlength="120" placeholder="Sibling concession"></label>
+<label class="field">Category<select name="category">@foreach (\Modules\Fees\Models\FeeConcession::CATEGORIES as $k => $l)<option value="{{ $k }}" @selected($c?->category === $k)>{{ $l }}</option>@endforeach</select></label>
+<label class="field">Type<select name="type"><option value="percent" @selected($c?->type !== 'amount')>Percent</option><option value="amount" @selected($c?->type === 'amount')>Fixed amount per instalment</option></select></label>
+<label class="field">Value <span class="hint">% or ₹</span><input name="value" value="{{ $c ? ($c->type === 'percent' ? $c->value / 100 : \Modules\Accounting\Support\Amount::input($c->value)) : '' }}" required></label>
+<fieldset class="field wide"><legend>Applies to <span class="hint">none ticked = all heads</span></legend>@foreach ($heads as $h)<label class="check"><input type="checkbox" name="fee_head_ids[]" value="{{ $h->id }}" @checked(in_array($h->id, $c?->fee_head_ids ?? []))> {{ $h->name }}</label>@endforeach</fieldset>
+<input type="hidden" name="is_active" value="0"><label class="check"><input type="checkbox" name="is_active" value="1" @checked($c ? $c->is_active : true)> Active</label>

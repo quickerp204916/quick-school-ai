@@ -5,10 +5,10 @@
     "license": "proprietary",
     "require": {
         "php": "^8.2",
-        "ext-bcmath": "*",
-        "ext-pdo_mysql": "*",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10"
+        "laravel/tinker": "^2.10",
+        "laravel/sanctum": "^4.0",
+        "ext-pdo": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -51,5 +51,9 @@
         "sort-packages": true
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "suggest": {
+        "ext-pdo_mysql": "For MySQL 8.4 (tenant isolation by triggers)",
+        "ext-pdo_pgsql": "For PostgreSQL 16 (tenant isolation by Row-Level Security)"
+    }
 }
